@@ -11,6 +11,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.RequestOptions;
@@ -50,6 +51,8 @@ public class OpenSearchConsumer {
                 ConsumerRecords<String, String> records =
                         kafkaConsumer.poll(Duration.ofMillis(100));
 
+                BulkRequest bulkRequest = new BulkRequest();
+
                 for (ConsumerRecord<String, String> record : records) {
                     log.info("Key: " + record.key() + ", Value: " + record.value());
                     log.info("Partition: " + record.partition() + ", Offset:" + record.offset());
@@ -58,7 +61,12 @@ public class OpenSearchConsumer {
                             .source(record.value(), XContentType.JSON);
 
                     IndexResponse index = restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+                    bulkRequest.add(indexRequest);
                     log.info(index.getId());
+                }
+
+                if (bulkRequest.numberOfActions() != 0) {
+                    restHighLevelClient.bulk(bulkRequest, RequestOptions.DEFAULT);
                 }
             }
 
